@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Vector;
-import java.util.logging.Level;
 
 /**
  *
@@ -18,7 +17,7 @@ public abstract class kfsSsh implements UserInfo {
 
     private static final org.apache.log4j.Logger l = org.apache.log4j.Logger.getLogger(kfsSsh.class);
     //
-    private JSch ssh;
+    private final JSch ssh;
     private Session session;
     private ChannelSftp channel;
 
