@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Vector;
@@ -151,8 +152,8 @@ public abstract class kfsSsh implements UserInfo {
                         continue;
                     }
                     if ((filter == null) || (filter.accept(null, le.getFilename()))) {
-                        if ((fromTime <= (1000*le.getAttrs().getMTime())) &&
-                                (toTime >= (1000*le.getAttrs().getMTime()))) {
+                        long mtime = 1000L*((long)le.getAttrs().getMTime());
+                        if ((fromTime <= mtime) && (toTime >= mtime)) {
                             ret.add(le.getFilename());
                         }
                     }
