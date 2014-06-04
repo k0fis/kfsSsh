@@ -1,12 +1,14 @@
 package kfs.kfsUtils.kfsSsh;
 
 import com.jcraft.jsch.*;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Vector;
 
 /**
@@ -15,8 +17,6 @@ import java.util.Vector;
  */
 public abstract class kfsSsh implements UserInfo {
 
-    private static final org.apache.log4j.Logger l = org.apache.log4j.Logger.getLogger(kfsSsh.class);
-    //
     private final JSch ssh;
     private Session session;
     private ChannelSftp channel;
@@ -31,17 +31,13 @@ public abstract class kfsSsh implements UserInfo {
         try {
             session = ssh.getSession(getUser(), getHost(), getPort());
         } catch (JSchException ex) {
-            String s = "Cannot get session for " + getUser() + "@" + getHost();
-            l.error(s, ex);
-            throw new kfsSshException(s, ex);
+            throw new kfsSshException("Cannot get session for " + getUser() + "@" + getHost(), ex);
         }
         session.setUserInfo(this);
         try {
             session.connect();
         } catch (JSchException ex) {
-            String s = "Cannot connect for " + getUser() + "@" + getHost();
-            l.error(s, ex);
-            throw new kfsSshException(s, ex);
+            throw new kfsSshException("Cannot connect for " + getUser() + "@" + getHost(), ex);
         }
     }
 
@@ -54,16 +50,12 @@ public abstract class kfsSsh implements UserInfo {
             try {
                 ch = session.openChannel("sftp");
             } catch (JSchException ex) {
-                String s = "Cannot open chanel for sftp";
-                l.error(s, ex);
-                throw new kfsSshException(s, ex);
+                throw new kfsSshException("Cannot open chanel for sftp", ex);
             }
             try {
                 ch.connect();
             } catch (JSchException ex) {
-                String s = "Cannot connect on chanel sftp";
-                l.error(s, ex);
-                throw new kfsSshException(s, ex);
+                throw new kfsSshException("Cannot connect on chanel sftp", ex);
             }
             channel = (ChannelSftp) ch;
         }
@@ -76,9 +68,7 @@ public abstract class kfsSsh implements UserInfo {
         try {
             return channel.get(remoteFile);
         } catch (SftpException ex) {
-            String s = "Cannot open input stream for file " + remoteFile;
-            l.error(s, ex);
-            throw new kfsSshException(s, ex);
+            throw new kfsSshException("Cannot open input stream for file " + remoteFile, ex);
         }
     }
 
@@ -89,9 +79,7 @@ public abstract class kfsSsh implements UserInfo {
         try {
             return channel.put(remoteFile, ChannelSftp.OVERWRITE);
         } catch (SftpException ex) {
-            String s = "Cannot put file " + remoteFile;
-            l.error(s, ex);
-            throw new kfsSshException(s, ex);
+            throw new kfsSshException("Cannot put file " + remoteFile, ex);
         }
     }
 
@@ -103,9 +91,7 @@ public abstract class kfsSsh implements UserInfo {
         try {
             channel.put(input, remoteFile, ChannelSftp.APPEND);
         } catch (SftpException ex) {
-            String s = "Cannot append file " + remoteFile;
-            l.error(s, ex);
-            throw new kfsSshException(s, ex);
+            throw new kfsSshException("Cannot append file " + remoteFile, ex);
         }
     }
 
@@ -116,9 +102,7 @@ public abstract class kfsSsh implements UserInfo {
         try {
             channel.get(file, out);
         } catch (SftpException ex) {
-            String s = "Cannot get file " + file;
-            l.error(s, ex);
-            throw new kfsSshException(s, ex);
+            throw new kfsSshException("Cannot get file " + file, ex);
         }
     }
 
@@ -131,9 +115,7 @@ public abstract class kfsSsh implements UserInfo {
         try {
             v = channel.ls(remoteFolder);
         } catch (SftpException ex) {
-            String s = "Cannot list folder " + remoteFolder;
-            l.error(s, ex);
-            throw new kfsSshException(s, ex);
+            throw new kfsSshException("Cannot list folder " + remoteFolder, ex);
         }
         if (v != null) {
             for (Object o : v) {
@@ -144,6 +126,40 @@ public abstract class kfsSsh implements UserInfo {
             }
         }
         return al.toArray(new String[0]);
+    }
+
+    public List<String> listFilesByDate(String remoteFolder, FilenameFilter filter, long fromTime, long toTime) throws kfsSshException {
+        if (channel == null) {
+            connect();
+        }
+        Vector v = null;
+        try {
+            v = channel.ls(remoteFolder);
+        } catch (SftpException ex) {
+            throw new kfsSshException("Cannot list folder " + remoteFolder, ex);
+        }
+        ArrayList<String> ret = new ArrayList<String>();
+        if (v != null) {
+            for (Iterator it = v.iterator(); it.hasNext();) {
+                Object o = it.next();
+                if (o != null) {
+                    ChannelSftp.LsEntry le = (ChannelSftp.LsEntry) o;
+                    if (le.getFilename().startsWith(".")) {
+                        continue;
+                    }
+                    if (le.getAttrs().isDir()) {
+                        continue;
+                    }
+                    if ((filter == null) || (filter.accept(null, le.getFilename()))) {
+                        if ((fromTime <= (1000*le.getAttrs().getMTime())) &&
+                                (toTime >= (1000*le.getAttrs().getMTime()))) {
+                            ret.add(le.getFilename());
+                        }
+                    }
+                }
+            }
+        }
+        return ret;
     }
 
     public String[] lsl(String remoteFolder) throws kfsSshException {
@@ -161,9 +177,7 @@ public abstract class kfsSsh implements UserInfo {
         try {
             v = channel.ls(remoteFolder);
         } catch (SftpException ex) {
-            String s = "Cannot list folder " + remoteFolder;
-            l.error(s, ex);
-            throw new kfsSshException(s, ex);
+            throw new kfsSshException("Cannot list folder " + remoteFolder, ex);
         }
         if (v != null) {
             for (Iterator it = v.iterator(); it.hasNext();) {
@@ -209,9 +223,7 @@ public abstract class kfsSsh implements UserInfo {
         try {
             exCh = (ChannelExec) session.openChannel("exec");
         } catch (JSchException ex) {
-            String s = "Cannot execute " + cmd;
-            l.error(s, ex);
-            throw new kfsSshException(s, ex);
+            throw new kfsSshException("Cannot execute " + cmd, ex);
         }
         if (exCh != null) {
             try {
@@ -221,16 +233,12 @@ public abstract class kfsSsh implements UserInfo {
                 try {
                     exCh.connect();
                 } catch (JSchException ex) {
-                    String s = "Cannot execute " + cmd;
-                    l.error(s, ex);
-                    throw new kfsSshException(s, ex);
+                    throw new kfsSshException("Cannot execute " + cmd, ex);
                 }
                 try {
                     in = exCh.getInputStream();
                 } catch (IOException ex) {
-                    String s = "Cannot execute " + cmd;
-                    l.error(s, ex);
-                    throw new kfsSshException(s, ex);
+                    throw new kfsSshException("Cannot execute " + cmd, ex);
                 }
                 byte[] tmp = new byte[1024];
                 while (true) {
@@ -240,7 +248,6 @@ public abstract class kfsSsh implements UserInfo {
                             try {
                                 i = in.read(tmp, 0, 1024);
                             } catch (IOException ex) {
-                                l.error("Cannot read " + i);
                                 throw new kfsSshException("Cannot read " + i, ex);
                             }
                             if (i < 0) {
@@ -249,16 +256,14 @@ public abstract class kfsSsh implements UserInfo {
                             try {
                                 out.write(tmp, 0, i);
                             } catch (IOException ex) {
-                                l.error("Cannot write " + i);
                                 throw new kfsSshException("Cannot write " + i, ex);
                             }
                         }
                     } catch (IOException ex) {
-                        l.error("Cannot read avialable", ex);
                         throw new kfsSshException("Cannot read avialable", ex);
                     }
                     if (exCh.isClosed()) {
-                        System.out.println("exit-status: " + exCh.getExitStatus());
+                        //System.out.println("exit-status: " + exCh.getExitStatus());
                         break;
                     }
                 }

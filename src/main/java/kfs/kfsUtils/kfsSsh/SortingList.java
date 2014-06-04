@@ -5,6 +5,7 @@ import java.util.*;
 /**
  *
  * @author pavedrim
+ * @param <T>
  */
 public class SortingList<T extends Object> implements List<T> {
 
